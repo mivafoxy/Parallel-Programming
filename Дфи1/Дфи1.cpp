@@ -70,7 +70,7 @@ double simpsons_rule(int myrank, int nprocs, int n)
 
 	sum = 2 * rieman_sum(myrank, nprocs, n) + trapeziodal_rule(myrank, nprocs, n); // Формула Симсона - это тупо сумма формул трапеции и прямоугольника. См. Теорию.
 
-	return sum;
+	return sum / 3;
 }
 
 // Всё описание применений функций MPI смотри в теории. Там точно расписано.
@@ -96,8 +96,10 @@ int main(int argc, char* argv[])
 		scanf("%d", &chosen_one);
 	}
 
+	MPI_Barrier(MPI_COMM_WORLD);
+
 	if (chosen_one == TRAPEZOIDAL_RULE)
-		printf("Sides are 0 and 1 because there is only true way to calculate PI!!! \n");
+		printf("Sides are 0 and 1 because it is only true way to calculate PI!!! \n");
 
 	double start = 0;
 	double end = 0;
@@ -115,20 +117,14 @@ int main(int argc, char* argv[])
 
 		start = MPI_Wtime();
 		if (chosen_one == RIEMAN_METHOD)
-		{
-			double riemanSum = rieman_sum(myrank, nprocs, n);
-			sum = calculate_pi(n, riemanSum);
-		}
+			sum = rieman_sum(myrank, nprocs, n);
 		else if (chosen_one == TRAPEZOIDAL_RULE)
-		{
-			double trapeziodalSum = trapeziodal_rule(myrank, nprocs, n);
-			sum = calculate_pi(n, trapeziodalSum);
-		}
+			sum = trapeziodal_rule(myrank, nprocs, n);
 		else if (chosen_one == SIMPSON_RULE)
-		{
-			double simpsonSum = simpsons_rule(myrank, nprocs, n);
-			sum = calculate_pi(n, simpsonSum) / 3.0;
-		}
+			sum = simpsons_rule(myrank, nprocs, n);
+
+		sum = calculate_pi(n, sum);
+
 		end = MPI_Wtime() - start;
 
 		MPI_Reduce(&sum, &pi, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
