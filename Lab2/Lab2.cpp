@@ -18,7 +18,7 @@ static const int GLOBAL_LU = 4;
 void luDecompositionSimple(double** a, int* map, int myrank, int nprocs, int n);
 
 // LU-разложение с выобором ведущего элемента по строке.
-void luDecompositionRow(int n);
+void luDecompositionRow(double** a, int* map, int myrank, int nprocs, int n);
 
 // LU-разложение с выбором ведущего элемента по столбцу.
 void luDecompositionColumn(int n);
@@ -54,12 +54,15 @@ int main(int argc, char* argv[])
 	double start;
 	double end;
 	double finish;
-	
+
 	FILE *f = fopen("res.txt", "w");
 
 	for (int iterationCounts = 0; iterationCounts < steps; iterationCounts++)
 	{
 		int innerSteps = ITERATIONS_COUNT[iterationCounts];
+
+		printf("Iterations count: %d \n", innerSteps);
+
 		int *map = (int*)malloc(sizeof(int) * innerSteps);
 		double **a = new double*[innerSteps];
 
@@ -67,7 +70,7 @@ int main(int argc, char* argv[])
 		for (int row = 0; row < innerSteps; row++)
 		{
 			a[row] = new double[innerSteps];
-			
+
 			for (int column = 0; column < innerSteps; column++)
 				a[row][column] = 1 / (1.0 * (row + column + 1));
 		}
@@ -81,7 +84,7 @@ int main(int argc, char* argv[])
 		if (chosen_one == SIMPLE_LU)
 			luDecompositionSimple(a, map, myrank, nprocs, innerSteps);
 		else if (chosen_one == ROW_LU)
-			luDecompositionRow(innerSteps);
+			luDecompositionRow(a, map, myrank, nprocs, innerSteps);
 		else if (chosen_one = COLUMN_LU)
 			luDecompositionColumn(innerSteps);
 		else if (chosen_one == GLOBAL_LU)
@@ -132,9 +135,76 @@ void luDecompositionSimple(double** a, int* map, int myrank, int nprocs, int n)
 }
 
 // LU-разложение с выобором ведущего элемента по строке.
-void luDecompositionRow(int n)
+void luDecompositionRow(double** a, int* map, int myrank, int nprocs, int n)
 {
+	for (int k = 0; k < (n - 1); k++)
+	{
+		int maxElementIndex = k;
 
+		if (map[k] == myrank)
+		{
+			double max = a[k][maxElementIndex];
+
+			for (int column = (k + 1); column < n; column++) // Поиск максимального элемента в столбце по строкам и его индекса.
+			{
+				if (map[column] == myrank && a[k][column] > max)
+				{
+					max = a[k][column];
+					maxElementIndex = column;
+				}
+			}
+
+			if (k != maxElementIndex) // Перестановка найденного максимального элемента вверх.
+			{
+				for (int row = 0; row < n; row++)
+				{
+					double temp = a[row][k];
+					a[row][k] = a[row][maxElementIndex];
+					a[row][maxElementIndex] = temp;
+				}
+			}
+
+			for (int column = (k + 1); column < n; column++)
+				a[k][column] /= a[k][k];
+		}
+
+		MPI_Status status;
+
+		for (int row = 0; row < n; row++) // Сообщение всем остальным потокам о том, что у нас тут вообще что - то поменялось.
+		{
+			if (map[k] == myrank)
+			{
+				if (map[row] != myrank)
+				{
+					MPI_Send(&a[row][k], 1, MPI_DOUBLE, map[row], 1, MPI_COMM_WORLD);
+					MPI_Send(&maxElementIndex, 1, MPI_INT, map[row], 1, MPI_COMM_WORLD);
+					MPI_Send(&a[row][maxElementIndex], 1, MPI_DOUBLE, map[row], 1, MPI_COMM_WORLD);
+				}
+			}
+			else
+			{
+				if (map[row] == myrank)
+				{
+					int recvIndex;
+
+					MPI_Recv(&a[row][k], 1, MPI_DOUBLE, map[k], 1, MPI_COMM_WORLD, &status);
+					MPI_Recv(&recvIndex, 1, MPI_INT, map[k], 1, MPI_COMM_WORLD, &status);
+					MPI_Recv(&a[row][recvIndex], 1, MPI_DOUBLE, map[k], 1, MPI_COMM_WORLD, &status);
+				}
+			}
+		}
+
+		MPI_Barrier(MPI_COMM_WORLD);
+
+		for (int rowTemp = (k + 1); rowTemp < n; rowTemp++)
+		{
+			if (map[rowTemp] == myrank)
+			{
+				for (int column = (k + 1); column < n; column++)
+					a[k][column] -= a[k][rowTemp] * a[k][column];
+			}
+		}
+	}
 }
 
 // LU-разложение с выбором ведущего элемента по столбцу.
