@@ -21,10 +21,10 @@ void luDecompositionSimple(double** a, int* map, int myrank, int nprocs, int n);
 void luDecompositionRow(double** a, int* map, int myrank, int nprocs, int n);
 
 // LU-разложение с выбором ведущего элемента по столбцу.
-void luDecompositionColumn(int n);
+void luDecompositionColumn(double** a, int* map, int myrank, int nprocs, int n);
 
 // Глобальное LU-разложение.
-void luDecompositionGlobal(int n);
+void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n);
 
 int main(int argc, char* argv[])
 {
@@ -86,9 +86,9 @@ int main(int argc, char* argv[])
 		else if (chosen_one == ROW_LU)
 			luDecompositionRow(a, map, myrank, nprocs, innerSteps);
 		else if (chosen_one = COLUMN_LU)
-			luDecompositionColumn(innerSteps);
+			luDecompositionColumn(a, map, myrank, nprocs, innerSteps);
 		else if (chosen_one == GLOBAL_LU)
-			luDecompositionGlobal(innerSteps);
+			luDecompositionGlobal(a, map, myrank, nprocs, innerSteps);
 
 		end = MPI_Wtime() - start;
 
@@ -208,15 +208,143 @@ void luDecompositionRow(double** a, int* map, int myrank, int nprocs, int n)
 }
 
 // LU-разложение с выбором ведущего элемента по столбцу.
-void luDecompositionColumn(int n)
+void luDecompositionColumn(double** a, int* map, int myrank, int nprocs, int n)
 {
+	for (int k = 0; k < (n - 1); k++)
+	{
+		int maxElementIndex = k;
+		
+		if (map[k] == myrank)
+		{
+			double max = a[maxElementIndex][k];
 
+			for (int row = (k + 1); row < n; row++)
+			{
+				if (map[row] == myrank && a[row][k] > max)
+				{
+					max = a[row][k];
+					maxElementIndex = row;
+				}
+			}
+
+			if (k != maxElementIndex) // Перестановка найденного максимального элемента влево.
+			{
+				double* temp = a[k];
+
+				a[k] = a[maxElementIndex];
+				a[maxElementIndex] = temp;
+			}
+
+			for (int column = (k + 1); column < n; column++)
+			{
+				a[k][column] /= a[k][k];
+			}
+		}
+
+		MPI_Bcast(&a[maxElementIndex][0], n, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
+		MPI_Bcast(&a[k][k + 1], (n - k - 1), MPI_DOUBLE, map[k], MPI_COMM_WORLD);
+		MPI_Barrier(MPI_COMM_WORLD);
+
+		for (int row = (k + 1); row < n; row++)
+		{
+			if (map[row] == myrank)
+			{
+				for (int column = (k + 1); column < n; column++)
+					a[row][column] -= a[row][k] * a[k][column];
+			}
+		}
+	}
 }
 
 // Глобальное LU-разложение.
-void luDecompositionGlobal(int n)
+void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 {
+	for (int k = 0; k < (n - 1); k++)
+	{
+		int maxRowIndex = k;
+		int maxColumnIndex = k;
 
+		if (map[k] == myrank)
+		{
+			double max = a[maxRowIndex][maxColumnIndex];
+
+			for (int row = k; row < n; row++)
+			{
+				for (int column = 0; column < n; column++)
+				{
+					if (map[row] == myrank && map[column] == myrank && a[row][column] > max)
+					{
+						max = a[row][column];
+						maxRowIndex = row;
+						maxColumnIndex = column;
+					}
+				}
+			}
+
+			if (k != maxColumnIndex)
+			{
+				for (int row = 0; row < n; row++)
+				{
+					double temp = a[row][k];
+					a[row][k] = a[row][maxColumnIndex];
+					a[row][maxColumnIndex] = temp;
+				}
+			}
+
+			if (k != maxRowIndex)
+			{
+				double* temp = a[k];
+
+				a[k] = a[maxRowIndex];
+				a[maxRowIndex] = temp;
+			}
+
+			for (int column = (k + 1); column < n; column++)
+				a[k][column] /= a[k][k];
+
+			MPI_Status status;
+
+			for (int row = 0; row < n; row++) // Сообщение всем остальным потокам о том, что у нас тут вообще что - то поменялось.
+			{
+				if (map[k] == myrank)
+				{
+					if (map[row] != myrank)
+					{
+						MPI_Send(&a[row][k], 1, MPI_DOUBLE, map[row], 1, MPI_COMM_WORLD);
+						MPI_Send(&maxColumnIndex, 1, MPI_INT, map[row], 1, MPI_COMM_WORLD);
+						MPI_Send(&a[row][maxColumnIndex], 1, MPI_DOUBLE, map[row], 1, MPI_COMM_WORLD);
+					}
+				}
+				else
+				{
+					if (map[row] == myrank)
+					{
+						int recvIndex;
+
+						MPI_Recv(&a[row][k], 1, MPI_DOUBLE, map[k], 1, MPI_COMM_WORLD, &status);
+						MPI_Recv(&recvIndex, 1, MPI_INT, map[k], 1, MPI_COMM_WORLD, &status);
+						MPI_Recv(&a[row][recvIndex], 1, MPI_DOUBLE, map[k], 1, MPI_COMM_WORLD, &status);
+					}
+				}
+			}
+
+			MPI_Bcast(&a[maxRowIndex][0], n, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
+			MPI_Bcast(&a[k][k + 1], (n - k - 1), MPI_DOUBLE, map[k], MPI_COMM_WORLD);
+			MPI_Barrier(MPI_COMM_WORLD);
+
+			for (int row = (k + 1); row < n; row++)
+			{
+				if (map[row] == myrank)
+				{
+					for (int column = (k + 1); column < n; column++)
+						a[row][column] -= a[row][k] * a[k][column];
+				}
+			}
+
+		}
+
+
+	}
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
