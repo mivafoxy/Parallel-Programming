@@ -6,6 +6,7 @@
 #include "mpi.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 static const int ITERATIONS_COUNT[] = { 10, 50, 100, 500, 1000 };
 
@@ -25,6 +26,12 @@ void luDecompositionColumn(double** a, int* map, int myrank, int nprocs, int n);
 
 // Глобальное LU-разложение.
 void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n);
+
+// Подсчёт нормы обычной матрицы.
+double countMatrixNorm(double** a, int n);
+
+// Подсчёт нормы LU матрицы.
+double countLuMatrixNorm(double** a, int n);
 
 int main(int argc, char* argv[])
 {
@@ -79,6 +86,8 @@ int main(int argc, char* argv[])
 		for (int i = 0; i < innerSteps; i++)
 			map[i] = i % nprocs;
 
+		double matrixNorm = countMatrixNorm(a, innerSteps);
+
 		start = MPI_Wtime();
 
 		if (chosen_one == SIMPLE_LU)
@@ -92,12 +101,14 @@ int main(int argc, char* argv[])
 
 		end = MPI_Wtime() - start;
 
+		double luMatrixNorm = countLuMatrixNorm(a, innerSteps);
+
 		MPI_Reduce(&end, &finish, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
 		if (myrank == 0)
 		{
 			// Сделать запись времени в файл.
-			fprintf(f, "%d\t %lg\t \r\n", innerSteps, finish / (1.0*nprocs));
+			fprintf(f, "%d\t %lg\t %lg\r\n", innerSteps, finish / (1.0*nprocs), (fabs(matrixNorm - luMatrixNorm)));
 
 			free(map);
 			delete a;
@@ -236,9 +247,7 @@ void luDecompositionColumn(double** a, int* map, int myrank, int nprocs, int n)
 			}
 
 			for (int column = (k + 1); column < n; column++)
-			{
 				a[k][column] /= a[k][k];
-			}
 		}
 
 		MPI_Bcast(&a[maxElementIndex][0], n, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
@@ -345,6 +354,71 @@ void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 
 
 	}
+}
+
+double countMatrixNorm(double** a, int n)
+{
+	double max = 0;
+
+	for (int row = 0; row < n; row++)
+	{
+		double sum = 0;
+
+		for (int column = 0; column < n; column++)
+			sum += fabs(a[row][column]);
+
+		if (sum > max)
+			max = sum;
+	}
+
+	return max;
+}
+
+double countLuMatrixNorm(double** a, int n)
+{
+	double ** result = new double*[n];
+	double** l = new double*[n];
+	double** u = new double*[n];
+
+	for (int row = 0; row < n; row++) 
+	{
+		result[row] = new double[n];
+		l[row] = new double[n];
+		u[row] = new double[n];
+
+		for (int column = 0; column < n; column++) 
+		{
+			if (row == column) 
+			{
+				l[row][column] = 1;
+				u[row][column] = a[row][column];
+			}
+			else if (column > row) 
+			{
+				l[row][column] = 0;
+				u[row][column] = a[row][column];
+			}
+			else 
+			{
+				l[row][column] = a[row][column];
+				u[row][column] = 0;
+			}
+		}
+	}
+
+	for (int row = 0; row < n; row++) 
+	{
+		for (int column = 0; column < n; column++) 
+		{
+			double temp = 0;
+			for (int k = 0; k < n; k++) 
+				temp += l[row][k] * u[k][column];
+			
+			result[row][column] = temp;
+		}
+	}
+
+	return countMatrixNorm(result, n);
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
