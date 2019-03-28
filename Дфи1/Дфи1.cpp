@@ -85,55 +85,66 @@ int main(int argc, char* argv[])
 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 
-	if (myrank == 0)
-	{
-		printf("Choose your method: \r\n");
-		printf("1 = reiman sum\r\n");
-		printf("2 = Trapezoidal rule \r\n");
-		printf("3 = Simpson's rule \r\n");
+	//if (myrank == 0)
+	//{
+	//	printf("Choose your method: \r\n");
+	//	printf("1 = reiman sum\r\n");
+	//	printf("2 = Trapezoidal rule \r\n");
+	//	printf("3 = Simpson's rule \r\n");
 
 
-		scanf("%d", &chosen_one);
-	}
+	//	scanf("%d", &chosen_one);
+	//}
 
-	MPI_Barrier(MPI_COMM_WORLD);
+	//MPI_Barrier(MPI_COMM_WORLD);
 
-	if (chosen_one == TRAPEZOIDAL_RULE)
-		printf("Sides are 0 and 1 because it is only true way to calculate PI!!! \n");
-
-	double start = 0;
-	double end = 0;
-	double finish = -1;
+	//if (chosen_one == TRAPEZOIDAL_RULE)
+	//	printf("Sides are 0 and 1 because it is only true way to calculate PI!!! \n");
 
 	FILE *f = fopen("results.txt", "w");
 
-	for (int iterationsCount = 0; iterationsCount < (sizeof(ITERATIONS_COUNT) / sizeof(int)); iterationsCount++)
+	for (int chosen_one = 1; chosen_one <= 3; chosen_one++)
 	{
-		int n = ITERATIONS_COUNT[iterationsCount];
+		double start = 0;
+		double end = 0;
+		double finish = -1;
 
-		MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-		printf("Iterations count: %d\n", n);
-
-		start = MPI_Wtime();
-		if (chosen_one == RIEMAN_METHOD)
-			sum = rieman_sum(myrank, nprocs, n);
-		else if (chosen_one == TRAPEZOIDAL_RULE)
-			sum = trapeziodal_rule(myrank, nprocs, n);
-		else if (chosen_one == SIMPSON_RULE)
-			sum = simpsons_rule(myrank, nprocs, n);
-
-		sum = calculate_pi(n, sum);
-
-		end = MPI_Wtime() - start;
-
-		MPI_Reduce(&sum, &pi, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-		MPI_Reduce(&end, &finish, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-
-		if (myrank == 0)
+		for (int iterationsCount = 0; iterationsCount < (sizeof(ITERATIONS_COUNT) / sizeof(int)); iterationsCount++)
 		{
-			printf("Computed value of pi = %lg\n", pi);
-			fprintf(f, "%d\t %.18lg\t %lg\t %lg\n", n, pi, finish, fabs(pi - PI));
+			int n = ITERATIONS_COUNT[iterationsCount];
+
+			MPI_Bcast(&n, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+			printf("Iterations count: %d\n", n);
+
+			start = MPI_Wtime();
+			if (chosen_one == RIEMAN_METHOD)
+				sum = rieman_sum(myrank, nprocs, n);
+			else if (chosen_one == TRAPEZOIDAL_RULE)
+				sum = trapeziodal_rule(myrank, nprocs, n);
+			else if (chosen_one == SIMPSON_RULE)
+				sum = simpsons_rule(myrank, nprocs, n);
+
+			sum = calculate_pi(n, sum);
+
+			end = MPI_Wtime() - start;
+
+			MPI_Reduce(&sum, &pi, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+			MPI_Reduce(&end, &finish, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+			if (myrank == 0)
+			{
+				if (chosen_one == RIEMAN_METHOD && iterationsCount == 0)
+					fprintf(f, "RIEMAN METHOD\r\n");
+				else if (chosen_one == TRAPEZOIDAL_RULE && iterationsCount == 0)
+					fprintf(f, "TRAPEZOIDAL RULE\r\n");
+				else if (chosen_one == SIMPSON_RULE && iterationsCount == 0)
+					fprintf(f, "SIMPSON RULE\r\n");
+
+				printf("Computed value of pi = %lg\n", pi);
+				fprintf(f, "%d\t %.18lg\t %lg\t %lg\n", n, pi, finish, fabs(pi - PI));
+			}
 		}
 	}
 

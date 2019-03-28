@@ -1,4 +1,4 @@
-#define _CRT_SECURE_NO_WARNINGS
+п»ї#define _CRT_SECURE_NO_WARNINGS
 // Lab2.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
@@ -15,22 +15,22 @@ static const int ROW_LU = 2;
 static const int COLUMN_LU = 3;
 static const int GLOBAL_LU = 4;
 
-//  LU-разложение без выбора ведущего элемента.
+//  LU-СЂР°Р·Р»РѕР¶РµРЅРёРµ Р±РµР· РІС‹Р±РѕСЂР° РІРµРґСѓС‰РµРіРѕ СЌР»РµРјРµРЅС‚Р°.
 void luDecompositionSimple(double** a, int* map, int myrank, int nprocs, int n);
 
-// LU-разложение с выобором ведущего элемента по строке.
+// LU-СЂР°Р·Р»РѕР¶РµРЅРёРµ СЃ РІС‹РѕР±РѕСЂРѕРј РІРµРґСѓС‰РµРіРѕ СЌР»РµРјРµРЅС‚Р° РїРѕ СЃС‚СЂРѕРєРµ.
 void luDecompositionRow(double** a, int* map, int myrank, int nprocs, int n);
 
-// LU-разложение с выбором ведущего элемента по столбцу.
+// LU-СЂР°Р·Р»РѕР¶РµРЅРёРµ СЃ РІС‹Р±РѕСЂРѕРј РІРµРґСѓС‰РµРіРѕ СЌР»РµРјРµРЅС‚Р° РїРѕ СЃС‚РѕР»Р±С†Сѓ.
 void luDecompositionColumn(double** a, int* map, int myrank, int nprocs, int n);
 
-// Глобальное LU-разложение.
+// Р“Р»РѕР±Р°Р»СЊРЅРѕРµ LU-СЂР°Р·Р»РѕР¶РµРЅРёРµ.
 void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n);
 
-// Подсчёт нормы обычной матрицы.
+// РџРѕРґСЃС‡С‘С‚ РЅРѕСЂРјС‹ РѕР±С‹С‡РЅРѕР№ РјР°С‚СЂРёС†С‹.
 double countMatrixNorm(double** a, int n);
 
-// Подсчёт нормы LU матрицы.
+// РџРѕРґСЃС‡С‘С‚ РЅРѕСЂРјС‹ LU РјР°С‚СЂРёС†С‹.
 double countLuMatrixNorm(double** a, int n);
 
 int main(int argc, char* argv[])
@@ -43,77 +43,90 @@ int main(int argc, char* argv[])
 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 
-	int chosen_one = -1;
-	if (myrank == 0)
-	{
-		printf("Choose your destiny.\r\n");
+	//int chosen_one = -1;
+	//if (myrank == 0)
+	//{
+	//	printf("Choose your destiny.\r\n");
 
-		printf("1 - simple LU decomposition.\r\n");
-		printf("2 - LU decomposition by rows.\r\n");
-		printf("3 - LU decomposition by columns.\r\n");
-		printf("4 - global LU decomposition.\r\n");
+	//	printf("1 - simple LU decomposition.\r\n");
+	//	printf("2 - LU decomposition by rows.\r\n");
+	//	printf("3 - LU decomposition by columns.\r\n");
+	//	printf("4 - global LU decomposition.\r\n");
 
-		scanf("%d", &chosen_one);
-	}
+	//	scanf("%d", &chosen_one);
+	//}
 
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	double start;
-	double end;
-	double finish;
+	//MPI_Barrier(MPI_COMM_WORLD);
 
 	FILE *f = fopen("res.txt", "w");
 
-	for (int iterationCounts = 0; iterationCounts < steps; iterationCounts++)
+	for (int chosen_one = 1; chosen_one <= 4; chosen_one++)
 	{
-		int innerSteps = ITERATIONS_COUNT[iterationCounts];
+		double start;
+		double end;
+		double finish;
 
-		printf("Iterations count: %d \n", innerSteps);
-
-		int *map = (int*)malloc(sizeof(int) * innerSteps);
-		double **a = new double*[innerSteps];
-
-		// Инициализация матрицы.
-		for (int row = 0; row < innerSteps; row++)
+		for (int iterationCounts = 0; iterationCounts < steps; iterationCounts++)
 		{
-			a[row] = new double[innerSteps];
+			int innerSteps = ITERATIONS_COUNT[iterationCounts];
 
-			for (int column = 0; column < innerSteps; column++)
-				a[row][column] = 1 / (1.0 * (row + column + 1));
-		}
+			printf("Iterations count: %d \n", innerSteps);
 
-		// Инициализация карты.
-		for (int i = 0; i < innerSteps; i++)
-			map[i] = i % nprocs;
+			int *map = (int*)malloc(sizeof(int) * innerSteps);
+			double **a = new double*[innerSteps];
 
-		double matrixNorm = countMatrixNorm(a, innerSteps);
+			// РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РјР°С‚СЂРёС†С‹.
+			for (int row = 0; row < innerSteps; row++)
+			{
+				a[row] = new double[innerSteps];
 
-		start = MPI_Wtime();
+				for (int column = 0; column < innerSteps; column++)
+					a[row][column] = 1 / (1.0 * (row + column + 1));
+			}
 
-		if (chosen_one == SIMPLE_LU)
-			luDecompositionSimple(a, map, myrank, nprocs, innerSteps);
-		else if (chosen_one == ROW_LU)
-			luDecompositionRow(a, map, myrank, nprocs, innerSteps);
-		else if (chosen_one = COLUMN_LU)
-			luDecompositionColumn(a, map, myrank, nprocs, innerSteps);
-		else if (chosen_one == GLOBAL_LU)
-			luDecompositionGlobal(a, map, myrank, nprocs, innerSteps);
+			// РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РєР°СЂС‚С‹.
+			for (int i = 0; i < innerSteps; i++)
+				map[i] = i % nprocs;
 
-		end = MPI_Wtime() - start;
+			double matrixNorm = countMatrixNorm(a, innerSteps);
 
-		double luMatrixNorm = countLuMatrixNorm(a, innerSteps);
+			start = MPI_Wtime();
 
-		MPI_Reduce(&end, &finish, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+			if (chosen_one == SIMPLE_LU)
+				luDecompositionSimple(a, map, myrank, nprocs, innerSteps);
+			else if (chosen_one == ROW_LU)
+				luDecompositionRow(a, map, myrank, nprocs, innerSteps);
+			else if (chosen_one = COLUMN_LU)
+				luDecompositionColumn(a, map, myrank, nprocs, innerSteps);
+			else if (chosen_one == GLOBAL_LU)
+				luDecompositionGlobal(a, map, myrank, nprocs, innerSteps);
 
-		if (myrank == 0)
-		{
-			// Сделать запись времени в файл.
-			fprintf(f, "%d\t %lg\t %lg\r\n", innerSteps, finish / (1.0*nprocs), (fabs(matrixNorm - luMatrixNorm)));
+			end = MPI_Wtime() - start;
 
-			free(map);
-			delete a;
+			double luMatrixNorm = countLuMatrixNorm(a, innerSteps);
+
+			MPI_Reduce(&end, &finish, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+			if (myrank == 0)
+			{
+				if (chosen_one == SIMPLE_LU && iterationCounts == 0)
+					fprintf(f, "SIMPLE LU\r\n");
+				else if (chosen_one == ROW_LU && iterationCounts == 0)
+					fprintf(f, "ROW LU\r\n");
+				else if (chosen_one == COLUMN_LU && iterationCounts == 0)
+					fprintf(f, "COLUMN LU\r\n");
+				else if (chosen_one == GLOBAL_LU && iterationCounts == 0)
+					fprintf(f, "GLOBAL LU\r\n");
+
+				// РЎРґРµР»Р°С‚СЊ Р·Р°РїРёСЃСЊ РІСЂРµРјРµРЅРё РІ С„Р°Р№Р».
+				fprintf(f, "%d\t %lg\t %lg\r\n", innerSteps, finish / (1.0*nprocs), (fabs(matrixNorm - luMatrixNorm)));
+
+				free(map);
+				delete a;
+			}
 		}
 	}
+
 
 	MPI_Finalize();
 
@@ -121,7 +134,7 @@ int main(int argc, char* argv[])
 	return 0;
 }
 
-//  LU-разложение без выбора ведущего элемента.
+//  LU-СЂР°Р·Р»РѕР¶РµРЅРёРµ Р±РµР· РІС‹Р±РѕСЂР° РІРµРґСѓС‰РµРіРѕ СЌР»РµРјРµРЅС‚Р°.
 void luDecompositionSimple(double** a, int* map, int myrank, int nprocs, int n)
 {
 	for (int i = 0; i < (n - 1); i++)
@@ -145,7 +158,7 @@ void luDecompositionSimple(double** a, int* map, int myrank, int nprocs, int n)
 	}
 }
 
-// LU-разложение с выобором ведущего элемента по строке.
+// LU-СЂР°Р·Р»РѕР¶РµРЅРёРµ СЃ РІС‹РѕР±РѕСЂРѕРј РІРµРґСѓС‰РµРіРѕ СЌР»РµРјРµРЅС‚Р° РїРѕ СЃС‚СЂРѕРєРµ.
 void luDecompositionRow(double** a, int* map, int myrank, int nprocs, int n)
 {
 	for (int k = 0; k < (n - 1); k++)
@@ -156,7 +169,7 @@ void luDecompositionRow(double** a, int* map, int myrank, int nprocs, int n)
 		{
 			double max = a[k][maxElementIndex];
 
-			for (int column = (k + 1); column < n; column++) // Поиск максимального элемента в столбце по строкам и его индекса.
+			for (int column = (k + 1); column < n; column++) // РџРѕРёСЃРє РјР°РєСЃРёРјР°Р»СЊРЅРѕРіРѕ СЌР»РµРјРµРЅС‚Р° РІ СЃС‚РѕР»Р±С†Рµ РїРѕ СЃС‚СЂРѕРєР°Рј Рё РµРіРѕ РёРЅРґРµРєСЃР°.
 			{
 				if (map[column] == myrank && a[k][column] > max)
 				{
@@ -165,7 +178,7 @@ void luDecompositionRow(double** a, int* map, int myrank, int nprocs, int n)
 				}
 			}
 
-			if (k != maxElementIndex) // Перестановка найденного максимального элемента вверх.
+			if (k != maxElementIndex) // РџРµСЂРµСЃС‚Р°РЅРѕРІРєР° РЅР°Р№РґРµРЅРЅРѕРіРѕ РјР°РєСЃРёРјР°Р»СЊРЅРѕРіРѕ СЌР»РµРјРµРЅС‚Р° РІРІРµСЂС….
 			{
 				for (int row = 0; row < n; row++)
 				{
@@ -181,7 +194,7 @@ void luDecompositionRow(double** a, int* map, int myrank, int nprocs, int n)
 
 		MPI_Status status;
 
-		for (int row = 0; row < n; row++) // Сообщение всем остальным потокам о том, что у нас тут вообще что - то поменялось.
+		for (int row = 0; row < n; row++) // РЎРѕРѕР±С‰РµРЅРёРµ РІСЃРµРј РѕСЃС‚Р°Р»СЊРЅС‹Рј РїРѕС‚РѕРєР°Рј Рѕ С‚РѕРј, С‡С‚Рѕ Сѓ РЅР°СЃ С‚СѓС‚ РІРѕРѕР±С‰Рµ С‡С‚Рѕ - С‚Рѕ РїРѕРјРµРЅСЏР»РѕСЃСЊ.
 		{
 			if (map[k] == myrank)
 			{
@@ -218,13 +231,13 @@ void luDecompositionRow(double** a, int* map, int myrank, int nprocs, int n)
 	}
 }
 
-// LU-разложение с выбором ведущего элемента по столбцу.
+// LU-СЂР°Р·Р»РѕР¶РµРЅРёРµ СЃ РІС‹Р±РѕСЂРѕРј РІРµРґСѓС‰РµРіРѕ СЌР»РµРјРµРЅС‚Р° РїРѕ СЃС‚РѕР»Р±С†Сѓ.
 void luDecompositionColumn(double** a, int* map, int myrank, int nprocs, int n)
 {
 	for (int k = 0; k < (n - 1); k++)
 	{
 		int maxElementIndex = k;
-		
+
 		if (map[k] == myrank)
 		{
 			double max = a[maxElementIndex][k];
@@ -238,7 +251,7 @@ void luDecompositionColumn(double** a, int* map, int myrank, int nprocs, int n)
 				}
 			}
 
-			if (k != maxElementIndex) // Перестановка найденного максимального элемента влево.
+			if (k != maxElementIndex) // РџРµСЂРµСЃС‚Р°РЅРѕРІРєР° РЅР°Р№РґРµРЅРЅРѕРіРѕ РјР°РєСЃРёРјР°Р»СЊРЅРѕРіРѕ СЌР»РµРјРµРЅС‚Р° РІР»РµРІРѕ.
 			{
 				double* temp = a[k];
 
@@ -265,7 +278,7 @@ void luDecompositionColumn(double** a, int* map, int myrank, int nprocs, int n)
 	}
 }
 
-// Глобальное LU-разложение.
+// Р“Р»РѕР±Р°Р»СЊРЅРѕРµ LU-СЂР°Р·Р»РѕР¶РµРЅРёРµ.
 void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 {
 	for (int k = 0; k < (n - 1); k++)
@@ -313,7 +326,7 @@ void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 
 			MPI_Status status;
 
-			for (int row = 0; row < n; row++) // Сообщение всем остальным потокам о том, что у нас тут вообще что - то поменялось.
+			for (int row = 0; row < n; row++) // РЎРѕРѕР±С‰РµРЅРёРµ РІСЃРµРј РѕСЃС‚Р°Р»СЊРЅС‹Рј РїРѕС‚РѕРєР°Рј Рѕ С‚РѕРј, С‡С‚Рѕ Сѓ РЅР°СЃ С‚СѓС‚ РІРѕРѕР±С‰Рµ С‡С‚Рѕ - С‚Рѕ РїРѕРјРµРЅСЏР»РѕСЃСЊ.
 			{
 				if (map[k] == myrank)
 				{
@@ -351,8 +364,6 @@ void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 			}
 
 		}
-
-
 	}
 }
 
@@ -380,25 +391,25 @@ double countLuMatrixNorm(double** a, int n)
 	double** l = new double*[n];
 	double** u = new double*[n];
 
-	for (int row = 0; row < n; row++) 
+	for (int row = 0; row < n; row++)
 	{
 		result[row] = new double[n];
 		l[row] = new double[n];
 		u[row] = new double[n];
 
-		for (int column = 0; column < n; column++) 
+		for (int column = 0; column < n; column++)
 		{
-			if (row == column) 
+			if (row == column)
 			{
 				l[row][column] = 1;
 				u[row][column] = a[row][column];
 			}
-			else if (column > row) 
+			else if (column > row)
 			{
 				l[row][column] = 0;
 				u[row][column] = a[row][column];
 			}
-			else 
+			else
 			{
 				l[row][column] = a[row][column];
 				u[row][column] = 0;
@@ -406,14 +417,14 @@ double countLuMatrixNorm(double** a, int n)
 		}
 	}
 
-	for (int row = 0; row < n; row++) 
+	for (int row = 0; row < n; row++)
 	{
-		for (int column = 0; column < n; column++) 
+		for (int column = 0; column < n; column++)
 		{
 			double temp = 0;
-			for (int k = 0; k < n; k++) 
+			for (int k = 0; k < n; k++)
 				temp += l[row][k] * u[k][column];
-			
+
 			result[row][column] = temp;
 		}
 	}
