@@ -1,3 +1,4 @@
-﻿  Дфи1.cpp
+﻿  pch.cpp
+  Дфи1.cpp
 d:\sources\study\parallel programming\mpi\дфи1\дфи1.cpp(15): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
   Дфи1.vcxproj -> D:\Sources\Study\Parallel Programming\MPI\Дфи1\x64\Debug\Дфи1.exe
