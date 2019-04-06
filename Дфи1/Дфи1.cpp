@@ -6,7 +6,7 @@
 #include "mpi.h"
 #include "math.h"
 
-static const int ITERATIONS_COUNT[] = { 10, 50, 100, 500, 1000 };
+static const int ITERATIONS_COUNT[] = { 1000, 10000, 100000 };
 
 static const int RIEMAN_METHOD = 1;
 static const int TRAPEZOIDAL_RULE = 2;
@@ -143,7 +143,7 @@ int main(int argc, char* argv[])
 					fprintf(f, "SIMPSON RULE\r\n");
 
 				printf("Computed value of pi = %lg\n", pi);
-				fprintf(f, "%d\t %.18lg\t %lg\t %lg\n", n, pi, finish, fabs(pi - PI));
+				fprintf(f, "%d\t %.18lg\t %lg\t %lg\n", n, pi, (finish / nprocs), fabs(pi - PI));
 			}
 		}
 	}
