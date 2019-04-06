@@ -1,4 +1,4 @@
-﻿#define _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 // Lab2.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
@@ -38,6 +38,7 @@ int main(int argc, char* argv[])
 	const int steps = sizeof(ITERATIONS_COUNT) / sizeof(int);
 
 	int myrank, nprocs;
+	FILE* f = fopen("res.txt", "w");
 
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -58,7 +59,6 @@ int main(int argc, char* argv[])
 
 	//MPI_Barrier(MPI_COMM_WORLD);
 
-	FILE *f = fopen("res.txt", "w");
 
 	for (int chosen_one = 1; chosen_one <= 4; chosen_one++)
 	{
@@ -72,8 +72,8 @@ int main(int argc, char* argv[])
 
 			printf("Iterations count: %d \n", innerSteps);
 
-			int *map = (int*)malloc(sizeof(int) * innerSteps);
-			double **a = new double*[innerSteps];
+			int* map = (int*)malloc(sizeof(int) * innerSteps);
+			double** a = new double* [innerSteps];
 
 			// Инициализация матрицы.
 			for (int row = 0; row < innerSteps; row++)
@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
 				luDecompositionSimple(a, map, myrank, nprocs, innerSteps);
 			else if (chosen_one == ROW_LU)
 				luDecompositionRow(a, map, myrank, nprocs, innerSteps);
-			else if (chosen_one = COLUMN_LU)
+			else if (chosen_one == COLUMN_LU)
 				luDecompositionColumn(a, map, myrank, nprocs, innerSteps);
 			else if (chosen_one == GLOBAL_LU)
 				luDecompositionGlobal(a, map, myrank, nprocs, innerSteps);
@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
 					fprintf(f, "GLOBAL LU\r\n");
 
 				// Сделать запись времени в файл.
-				fprintf(f, "%d\t %lg\t %lg\r\n", innerSteps, finish / (1.0*nprocs), (fabs(matrixNorm - luMatrixNorm)));
+				fprintf(f, "%d\t %lg\t %lg\r\n", innerSteps, finish / (1.0 * nprocs), (fabs(matrixNorm - luMatrixNorm)));
 
 				free(map);
 				delete a;
@@ -281,88 +281,93 @@ void luDecompositionColumn(double** a, int* map, int myrank, int nprocs, int n)
 // Глобальное LU-разложение.
 void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 {
-	for (int k = 0; k < (n - 1); k++)
+	for (int k = 0; k < n - 1; k++) 
 	{
-		int maxRowIndex = k;
-		int maxColumnIndex = k;
-
-		if (map[k] == myrank)
+		int indMaxR = k, indMaxC = k;
+		if (map[k] == myrank) 
 		{
-			double max = a[maxRowIndex][maxColumnIndex];
 
-			for (int row = k; row < n; row++)
+			double max = a[indMaxR][indMaxC];
+
+			for (int i = k; i < n; i++) 
 			{
-				for (int column = 0; column < n; column++)
+				for (int j = k; j < n; j++) 
 				{
-					if (map[row] == myrank && map[column] == myrank && a[row][column] > max)
+					if (map[i] == myrank && map[j] == myrank && a[i][j] > max) 
 					{
-						max = a[row][column];
-						maxRowIndex = row;
-						maxColumnIndex = column;
+						max = a[i][j];
+						indMaxR = i;
+						indMaxC = j;
 					}
 				}
 			}
 
-			if (k != maxColumnIndex)
+			if (k != indMaxC) 
 			{
-				for (int row = 0; row < n; row++)
+				for (int j = 0; j < n; j++) 
 				{
-					double temp = a[row][k];
-					a[row][k] = a[row][maxColumnIndex];
-					a[row][maxColumnIndex] = temp;
+					double temp = a[j][k];
+					a[j][k] = a[j][indMaxC];
+					a[j][indMaxC] = temp;
 				}
 			}
 
-			if (k != maxRowIndex)
+			if (k != indMaxR) 
 			{
 				double* temp = a[k];
 
-				a[k] = a[maxRowIndex];
-				a[maxRowIndex] = temp;
+				a[k] = a[indMaxR];
+				a[indMaxR] = temp;
 			}
 
-			for (int column = (k + 1); column < n; column++)
-				a[k][column] /= a[k][k];
-
-			MPI_Status status;
-
-			for (int row = 0; row < n; row++) // Сообщение всем остальным потокам о том, что у нас тут вообще что - то поменялось.
+			for (int i = k + 1; i < n; i++) 
 			{
-				if (map[k] == myrank)
-				{
-					if (map[row] != myrank)
-					{
-						MPI_Send(&a[row][k], 1, MPI_DOUBLE, map[row], 1, MPI_COMM_WORLD);
-						MPI_Send(&maxColumnIndex, 1, MPI_INT, map[row], 1, MPI_COMM_WORLD);
-						MPI_Send(&a[row][maxColumnIndex], 1, MPI_DOUBLE, map[row], 1, MPI_COMM_WORLD);
-					}
-				}
-				else
-				{
-					if (map[row] == myrank)
-					{
-						int recvIndex;
-
-						MPI_Recv(&a[row][k], 1, MPI_DOUBLE, map[k], 1, MPI_COMM_WORLD, &status);
-						MPI_Recv(&recvIndex, 1, MPI_INT, map[k], 1, MPI_COMM_WORLD, &status);
-						MPI_Recv(&a[row][recvIndex], 1, MPI_DOUBLE, map[k], 1, MPI_COMM_WORLD, &status);
-					}
-				}
+				a[k][i] /= a[k][k];
 			}
+		}
 
-			MPI_Bcast(&a[maxRowIndex][0], n, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
-			MPI_Bcast(&a[k][k + 1], (n - k - 1), MPI_DOUBLE, map[k], MPI_COMM_WORLD);
-			MPI_Barrier(MPI_COMM_WORLD);
-
-			for (int row = (k + 1); row < n; row++)
+		MPI_Status status;
+		
+		for (int j = 0; j < n; j++) 
+		{
+			if (map[k] == myrank) 
 			{
-				if (map[row] == myrank)
+				if (map[j] != myrank) 
 				{
-					for (int column = (k + 1); column < n; column++)
-						a[row][column] -= a[row][k] * a[k][column];
+					MPI_Send(&a[j][k], 1, MPI_DOUBLE, map[j], 1, MPI_COMM_WORLD);
+					MPI_Send(&indMaxC, 1, MPI_INT, map[j], 1, MPI_COMM_WORLD);
+					MPI_Send(&a[j][indMaxC], 1, MPI_DOUBLE, map[j], 1, MPI_COMM_WORLD);
+				}
+
+			}
+			else 
+			{
+				if (map[j] == myrank) 
+				{
+					int  recvInd;
+					MPI_Recv(&a[j][k], 1, MPI_DOUBLE, map[k], 1, MPI_COMM_WORLD, &status);
+					MPI_Recv(&recvInd, 1, MPI_INT, map[k], 1, MPI_COMM_WORLD, &status);
+					MPI_Recv(&a[j][recvInd], 1, MPI_DOUBLE, map[k], 1, MPI_COMM_WORLD, &status);
+				}
+
+			}
+			//MPI_Bcast(&a[j][k], 1, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
+			//MPI_Bcast(&a[j][indMax], 1, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
+		}
+
+		MPI_Bcast(&a[indMaxR][0], n, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
+		MPI_Bcast(&a[k][k + 1], n - k - 1, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
+		MPI_Barrier(MPI_COMM_WORLD);
+
+		for (int i = k + 1; i < n; i++) 
+		{
+			if (map[i] == myrank) 
+			{
+				for (int j = k + 1; j < n; j++) 
+				{
+					a[i][j] -= a[i][k] * a[k][j];
 				}
 			}
-
 		}
 	}
 }
@@ -387,9 +392,9 @@ double countMatrixNorm(double** a, int n)
 
 double countLuMatrixNorm(double** a, int n)
 {
-	double ** result = new double*[n];
-	double** l = new double*[n];
-	double** u = new double*[n];
+	double** result = new double* [n];
+	double** l = new double* [n];
+	double** u = new double* [n];
 
 	for (int row = 0; row < n; row++)
 	{
