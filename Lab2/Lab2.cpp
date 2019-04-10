@@ -281,19 +281,19 @@ void luDecompositionColumn(double** a, int* map, int myrank, int nprocs, int n)
 // Глобальное LU-разложение.
 void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 {
-	for (int k = 0; k < n - 1; k++) 
+	for (int k = 0; k < n - 1; k++)
 	{
 		int indMaxR = k, indMaxC = k;
-		if (map[k] == myrank) 
+		if (map[k] == myrank)
 		{
 
 			double max = a[indMaxR][indMaxC];
 
-			for (int i = k; i < n; i++) 
+			for (int i = k; i < n; i++)
 			{
-				for (int j = k; j < n; j++) 
+				for (int j = k; j < n; j++)
 				{
-					if (map[i] == myrank && map[j] == myrank && a[i][j] > max) 
+					if (map[i] == myrank && map[j] == myrank && a[i][j] > max)
 					{
 						max = a[i][j];
 						indMaxR = i;
@@ -302,9 +302,9 @@ void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 				}
 			}
 
-			if (k != indMaxC) 
+			if (k != indMaxC)
 			{
-				for (int j = 0; j < n; j++) 
+				for (int j = 0; j < n; j++)
 				{
 					double temp = a[j][k];
 					a[j][k] = a[j][indMaxC];
@@ -312,7 +312,7 @@ void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 				}
 			}
 
-			if (k != indMaxR) 
+			if (k != indMaxR)
 			{
 				double* temp = a[k];
 
@@ -320,19 +320,19 @@ void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 				a[indMaxR] = temp;
 			}
 
-			for (int i = k + 1; i < n; i++) 
+			for (int i = k + 1; i < n; i++)
 			{
 				a[k][i] /= a[k][k];
 			}
 		}
 
 		MPI_Status status;
-		
-		for (int j = 0; j < n; j++) 
+
+		for (int j = 0; j < n; j++)
 		{
-			if (map[k] == myrank) 
+			if (map[k] == myrank)
 			{
-				if (map[j] != myrank) 
+				if (map[j] != myrank)
 				{
 					MPI_Send(&a[j][k], 1, MPI_DOUBLE, map[j], 1, MPI_COMM_WORLD);
 					MPI_Send(&indMaxC, 1, MPI_INT, map[j], 1, MPI_COMM_WORLD);
@@ -340,9 +340,9 @@ void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 				}
 
 			}
-			else 
+			else
 			{
-				if (map[j] == myrank) 
+				if (map[j] == myrank)
 				{
 					int  recvInd;
 					MPI_Recv(&a[j][k], 1, MPI_DOUBLE, map[k], 1, MPI_COMM_WORLD, &status);
@@ -359,11 +359,11 @@ void luDecompositionGlobal(double** a, int* map, int myrank, int nprocs, int n)
 		MPI_Bcast(&a[k][k + 1], n - k - 1, MPI_DOUBLE, map[k], MPI_COMM_WORLD);
 		MPI_Barrier(MPI_COMM_WORLD);
 
-		for (int i = k + 1; i < n; i++) 
+		for (int i = k + 1; i < n; i++)
 		{
-			if (map[i] == myrank) 
+			if (map[i] == myrank)
 			{
-				for (int j = k + 1; j < n; j++) 
+				for (int j = k + 1; j < n; j++)
 				{
 					a[i][j] -= a[i][k] * a[k][j];
 				}
