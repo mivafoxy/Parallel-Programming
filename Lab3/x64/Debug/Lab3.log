@@ -1,2 +1,2 @@
 ﻿  Lab3.cpp
-  Lab3.vcxproj -> D:\Sources\Study\Parallel Programming\MPI\Дфи1\x64\Debug\Lab3.exe
+D:\Source\Cpp\Parallel-Programming\Lab3\Lab3.cpp(1,10): error C1083:  Cannot open include file: 'CL/cl.h': No such file or directory
